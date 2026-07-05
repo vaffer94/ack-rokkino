@@ -93,8 +93,10 @@ body.dash .status {
 
 body.dash .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 body.dash .card {

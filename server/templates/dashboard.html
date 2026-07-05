@@ -23,6 +23,7 @@
 <main class="grid">
   <div class="card"><canvas id="chart-temperature"></canvas></div>
   <div class="card"><canvas id="chart-humidity"></canvas></div>
+  <div class="card"><canvas id="chart-pollen"></canvas></div>
   <div class="card"><canvas id="chart-gas"></canvas></div>
   <div class="card"><canvas id="chart-lux"></canvas></div>
 </main>
@@ -31,8 +32,18 @@
 const chartDefs = [
   { id: "chart-temperature", title: "Temperatura (°C)" },
   { id: "chart-humidity",    title: "Umidità (%)" },
+  { id: "chart-pollen",      title: "Pollini — media giornaliera, ultimi 15 giorni (grani/m³)" },
   { id: "chart-gas",         title: "Gas MQ2" },
   { id: "chart-lux",         title: "Luminosità (lux)" },
+];
+
+const pollenSpecies = [
+  { key: "grass",   label: "graminacee", color: "#2b8a3e" },
+  { key: "birch",   label: "betulla",    color: "#e8990c" },
+  { key: "alder",   label: "ontano",     color: "#846358" },
+  { key: "mugwort", label: "artemisia",  color: "#862e9c" },
+  { key: "olive",   label: "olivo",      color: "#5c940d" },
+  { key: "ragweed", label: "ambrosia",   color: "#c92a2a" },
 ];
 const charts = {};
 let currentPeriod = "today";
@@ -75,6 +86,10 @@ function baseOptions(title) {
   };
 }
 
+function formatDay(epochMs) {
+  return new Date(epochMs).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+}
+
 function buildCharts() {
   for (const def of chartDefs) {
     const ctx = document.getElementById(def.id);
@@ -84,6 +99,10 @@ function buildCharts() {
       options: baseOptions(def.title),
     });
   }
+  // il grafico pollini è sempre giornaliero: asse e tooltip con la data
+  const pollenOpts = charts["chart-pollen"].options;
+  pollenOpts.scales.x.ticks.callback = v => formatDay(v);
+  pollenOpts.plugins.tooltip.callbacks.title = items => formatDay(items[0].parsed.x);
 }
 
 function toPoints(rows, key) {
@@ -106,6 +125,12 @@ function updateCharts(data) {
         borderColor: "#74b816", backgroundColor: "#74b816", borderWidth: 2,
         borderDash: [6, 4], tension: 0.2 },
     ],
+    "chart-pollen": pollenSpecies.map(s => (
+      { label: s.label,
+        data: data.pollen.map(r => ({ x: new Date(r.day).getTime(), y: r[s.key] })),
+        borderColor: s.color, backgroundColor: s.color, borderWidth: 2,
+        tension: 0.2, pointRadius: 3 }
+    )),
     "chart-gas": [
       { label: "MQ2 (grezzo)", data: toPoints(data.sensors, "gas"),
         borderColor: "#862e9c", backgroundColor: "#862e9c", borderWidth: 2, tension: 0.2 },

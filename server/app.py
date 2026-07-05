@@ -56,6 +56,9 @@ def api_data():
         {
             "sensors": _downsample(db.get_readings("sensor_readings", period)),
             "weather": _downsample(db.get_readings("weather_readings", period)),
+            # pollini: sempre max giornaliero degli ultimi 15 giorni,
+            # indipendente dal periodo selezionato
+            "pollen": db.get_daily_pollen(),
         }
     )
 
@@ -73,14 +76,17 @@ def _format_local(iso_timestamp):
 def kindle():
     sensors = db.get_readings("sensor_readings", "today")
     weather_rows = db.get_readings("weather_readings", "today")
+    pollen_rows = db.get_readings("pollen_readings", "today")
     last = sensors[-1] if sensors else None
     last_weather = weather_rows[-1] if weather_rows else None
+    last_pollen = pollen_rows[-1] if pollen_rows else None
     return render_template(
         "kindle.html",
         last=last,
         last_time=_format_local(last["timestamp"]) if last else None,
         weather=last_weather,
         weather_time=_format_local(last_weather["timestamp"]) if last_weather else None,
+        pollen=last_pollen,
         generated_at=datetime.now(TZ).strftime("%d/%m/%Y %H:%M"),
         metrics=list(charts.METRICS),
         cache_ts=int(time.time()),

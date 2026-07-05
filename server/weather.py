@@ -2,7 +2,7 @@
 
 Open-Meteo è gratuita e senza API key. Punto vicino a Milano zona Bocconi.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,6 +14,18 @@ LON = 9.188
 FETCH_INTERVAL_MINUTES = 10
 
 API_URL = "https://api.open-meteo.com/v1/forecast"
+AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+
+# specie di polline fornite da Open-Meteo (dati CAMS, copertura europea)
+# chiave API -> colonna DB
+POLLEN_FIELDS = {
+    "grass_pollen": "grass",
+    "birch_pollen": "birch",
+    "alder_pollen": "alder",
+    "mugwort_pollen": "mugwort",
+    "olive_pollen": "olive",
+    "ragweed_pollen": "ragweed",
+}
 
 # Codici WMO usati da Open-Meteo → descrizione in italiano
 WEATHER_CODES = {
@@ -69,21 +81,60 @@ def fetch_current_weather():
     }
 
 
+def fetch_current_pollen():
+    """Chiama l'Air Quality API e ritorna i pollini (grani/m³) per specie."""
+    resp = requests.get(
+        AIR_QUALITY_URL,
+        params={
+            "latitude": LAT,
+            "longitude": LON,
+            "current": ",".join(POLLEN_FIELDS),
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    current = resp.json()["current"]
+    return {column: current.get(field) for field, column in POLLEN_FIELDS.items()}
+
+
 def fetch_and_store():
-    """Recupera il meteo corrente e lo salva nel DB. Ritorna il dato salvato."""
+    """Recupera meteo e pollini correnti e li salva nel DB. Ritorna il meteo salvato."""
+    weather = None
     try:
         weather = fetch_current_weather()
+        db.insert_weather_reading(
+            temperature=weather["temperature"],
+            humidity=weather["humidity"],
+            description=weather["description"],
+        )
+        print(f"[weather] salvato: {weather}")
     except requests.RequestException as exc:
         # Non far crashare il job: al prossimo giro riprova
         print(f"[weather] fetch fallito: {exc}")
-        return None
-    db.insert_weather_reading(
-        temperature=weather["temperature"],
-        humidity=weather["humidity"],
-        description=weather["description"],
-    )
-    print(f"[weather] salvato: {weather}")
+
+    # il dato che interessa è il massimo della giornata: campionare ogni ora basta
+    if _pollen_needs_update():
+        try:
+            pollen = fetch_current_pollen()
+            # fuori stagione/copertura l'API può dare tutti null: inutile salvare
+            if any(v is not None for v in pollen.values()):
+                db.insert_pollen_reading(**pollen)
+                print(f"[pollen] salvato: {pollen}")
+            else:
+                print("[pollen] nessun dato disponibile, salto")
+        except requests.RequestException as exc:
+            print(f"[pollen] fetch fallito: {exc}")
+
     return weather
+
+
+def _pollen_needs_update():
+    """True se l'ultima lettura pollini ha più di ~55 minuti."""
+    rows = db.get_readings("pollen_readings", "today")
+    if not rows:
+        return True
+    last = datetime.fromisoformat(rows[-1]["timestamp"])
+    return (datetime.now(timezone.utc) - last).total_seconds() > 55 * 60
 
 
 def start_scheduler():

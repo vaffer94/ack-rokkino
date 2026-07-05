@@ -44,6 +44,20 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pollen_readings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            grass REAL,
+            birch REAL,
+            alder REAL,
+            mugwort REAL,
+            olive REAL,
+            ragweed REAL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -76,8 +90,46 @@ def insert_weather_reading(temperature, humidity, description, timestamp=None):
     conn.close()
 
 
+def insert_pollen_reading(grass, birch, alder, mugwort, olive, ragweed, timestamp=None):
+    timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+    conn.execute(
+        """
+        INSERT INTO pollen_readings (timestamp, grass, birch, alder, mugwort, olive, ragweed)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (timestamp, grass, birch, alder, mugwort, olive, ragweed),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_daily_pollen(days=15):
+    """Media giornaliera per specie negli ultimi `days` giorni.
+
+    La media nelle 24 ore è lo standard dei bollettini pollinici: le soglie di
+    rischio (bassa/media/alta) sono calibrate su di essa. Giorni in ora locale.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT date(timestamp, 'localtime') AS day,
+               AVG(grass) AS grass, AVG(birch) AS birch, AVG(alder) AS alder,
+               AVG(mugwort) AS mugwort, AVG(olive) AS olive, AVG(ragweed) AS ragweed
+        FROM pollen_readings
+        WHERE timestamp >= ?
+        GROUP BY day
+        ORDER BY day ASC
+        """,
+        (since,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
 def get_readings(table, period="today"):
-    if table not in ("sensor_readings", "weather_readings"):
+    if table not in ("sensor_readings", "weather_readings", "pollen_readings"):
         raise ValueError(f"Tabella sconosciuta: {table}")
     if period not in PERIOD_DELTAS:
         raise ValueError(f"Periodo sconosciuto: {period}")

@@ -25,7 +25,10 @@
     <tr><td>Gas (MQ2)</td><td>{{ last.gas }}</td></tr>
     <tr><td>Allarme gas</td><td>{% if last.alarm_state %}<b>ATTIVO!</b>{% else %}OK{% endif %}</td></tr>
     {% if weather %}
-    <tr><td>Fuori</td><td>{{ "%.1f"|format(weather.temperature) }} &deg;C, {{ weather.description }}</td></tr>
+    <tr><td>Fuori</td><td>{{ "%.1f"|format(weather.temperature) }} &deg;C, {{ "%.0f"|format(weather.humidity) }} %, {{ weather.description }}</td></tr>
+    {% endif %}
+    {% if pollen and pollen.grass is not none %}
+    <tr><td>Graminacee</td><td>{{ "%.0f"|format(pollen.grass) }} grani/m&sup3;</td></tr>
     {% endif %}
   </table>
 </td>
@@ -44,6 +47,9 @@
 <tr>
   <td><img src="/chart/gas.png?t={{ cache_ts }}" alt="gas" width="350" height="220"></td>
   <td><img src="/chart/lux.png?t={{ cache_ts }}" alt="luminosita" width="350" height="220"></td>
+</tr>
+<tr>
+  <td><img src="/chart/pollen.png?t={{ cache_ts }}" alt="pollini" width="350" height="220"></td>
 </tr>
 </table>
 
