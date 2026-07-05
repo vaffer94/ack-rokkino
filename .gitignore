@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 *.db
 .DS_Store
+
+# Segreti (mai committare)
+arduino/arduino_secrets.h
+.env
