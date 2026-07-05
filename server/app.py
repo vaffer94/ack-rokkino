@@ -41,6 +41,30 @@ def receive_sensor_data():
     return jsonify({"status": "ok"}), 201
 
 
+def _downsample(rows, max_points=500):
+    """Riduce i punti per non appesantire Chart.js sui periodi lunghi."""
+    step = max(1, len(rows) // max_points)
+    return rows[::step]
+
+
+@app.get("/api/data")
+def api_data():
+    period = request.args.get("period", "today")
+    if period not in db.PERIOD_DELTAS:
+        return jsonify({"error": f"Periodo non valido: {period}"}), 400
+    return jsonify(
+        {
+            "sensors": _downsample(db.get_readings("sensor_readings", period)),
+            "weather": _downsample(db.get_readings("weather_readings", period)),
+        }
+    )
+
+
+@app.get("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
+
+
 def _format_local(iso_timestamp):
     return datetime.fromisoformat(iso_timestamp).astimezone(TZ).strftime("%H:%M")
 
