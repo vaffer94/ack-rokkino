@@ -398,7 +398,7 @@ void loop() {
   }
 
 
-  // -------- Log su SD ogni 10 minuti --------
+  // -------- Log su SD + invio al server ogni 10 minuti --------
   if (millis() - lastSdLog >= sdLogInterval) {
     lastSdLog = millis();
 
@@ -430,6 +430,8 @@ void loop() {
     } else {
       Serial.println("SD: apertura data.csv fallita");
     }
+
+    sendToServer(temperature, humidity, mq2Value, illuminance, alarmState);
   }
 }
 
@@ -557,6 +559,49 @@ bool gasDangerDetected() {
     gasSamples[2] > threshold &&
     gasSamples[3] > threshold
   );
+}
+
+
+void sendToServer(float temperature, float humidity, int mq2Value, float illuminance, int alarmStateValue) {
+
+  // client dedicato: quello globale è usato da ThingSpeak
+  WiFiClient postClient;
+
+  Serial.println("POST al server Flask...");
+
+  if (!postClient.connect(SERVER_HOST, SERVER_PORT)) {
+    Serial.println("Server: connessione fallita");
+    return;
+  }
+
+  String body = String("{\"temperature\":") + String(temperature, 1) +
+                ",\"humidity\":" + String(humidity, 1) +
+                ",\"gas\":" + mq2Value +
+                ",\"lux\":" + String(illuminance, 1) +
+                ",\"alarm_state\":" + alarmStateValue + "}";
+
+  postClient.println("POST /api/sensors HTTP/1.1");
+  postClient.print("Host: "); postClient.println(SERVER_HOST);
+  postClient.println("Content-Type: application/json");
+  postClient.print("Content-Length: "); postClient.println(body.length());
+  postClient.println("Connection: close");
+  postClient.println();
+  postClient.print(body);
+
+  // aspetta la risposta (max 5 secondi) e logga la prima riga, es. "HTTP/1.1 201 CREATED"
+  unsigned long start = millis();
+  while (!postClient.available() && millis() - start < 5000) {
+    delay(10);
+  }
+  if (postClient.available()) {
+    String statusLine = postClient.readStringUntil('\n');
+    Serial.print("Server: ");
+    Serial.println(statusLine);
+  } else {
+    Serial.println("Server: nessuna risposta entro 5s");
+  }
+
+  postClient.stop();
 }
 
 
