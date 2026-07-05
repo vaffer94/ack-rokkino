@@ -8,33 +8,44 @@
 </head>
 <body class="kindle">
 
-<h1>Sensori casa</h1>
-<p class="updated">Pagina generata: {{ generated_at }} &middot; si aggiorna da sola ogni 10 minuti</p>
+<h1>Sensori casa <span class="updated">&mdash; {{ generated_at }}, refresh ogni 10 min</span></h1>
 
 {% if last %}
-<table class="values">
-  <tr><td>Temperatura</td><td>{{ "%.1f"|format(last.temperature) }} &deg;C</td></tr>
-  <tr><td>Umidit&agrave;</td><td>{{ "%.0f"|format(last.humidity) }} %</td></tr>
-  <tr><td>Gas (MQ2)</td><td>{{ last.gas }}</td></tr>
-  <tr><td>Luminosit&agrave;</td><td>{{ "%.0f"|format(last.lux) }} lux</td></tr>
-  <tr><td>Allarme gas</td><td>{% if last.alarm_state %}<b>ATTIVO!</b>{% else %}OK{% endif %}</td></tr>
+<table class="layout">
+<tr>
+<td>
+  <table class="values">
+    <tr><td>Temperatura</td><td>{{ "%.1f"|format(last.temperature) }} &deg;C</td></tr>
+    <tr><td>Umidit&agrave;</td><td>{{ "%.0f"|format(last.humidity) }} %</td></tr>
+    <tr><td>Luminosit&agrave;</td><td>{{ "%.0f"|format(last.lux) }} lux</td></tr>
+  </table>
+</td>
+<td>
+  <table class="values">
+    <tr><td>Gas (MQ2)</td><td>{{ last.gas }}</td></tr>
+    <tr><td>Allarme gas</td><td>{% if last.alarm_state %}<b>ATTIVO!</b>{% else %}OK{% endif %}</td></tr>
+    {% if weather %}
+    <tr><td>Fuori</td><td>{{ "%.1f"|format(weather.temperature) }} &deg;C, {{ weather.description }}</td></tr>
+    {% endif %}
+  </table>
+</td>
+</tr>
 </table>
-<p class="updated">Ultima lettura sensori: {{ last_time }}</p>
+<p class="updated">Ultima lettura sensori: {{ last_time }}{% if weather %} &middot; meteo: {{ weather_time }}{% endif %}</p>
 {% else %}
 <p>Nessun dato dai sensori oggi.</p>
 {% endif %}
 
-{% if weather %}
-<p class="weather">Fuori: {{ "%.1f"|format(weather.temperature) }} &deg;C,
-{{ "%.0f"|format(weather.humidity) }} %, {{ weather.description }}
-<span class="updated">(ore {{ weather_time }})</span></p>
-{% endif %}
-
-{% for metric in metrics %}
-<div class="chart">
-  <img src="/chart/{{ metric }}.png?t={{ cache_ts }}" alt="{{ metric }}" width="700" height="350">
-</div>
-{% endfor %}
+<table class="layout">
+<tr>
+  <td><img src="/chart/temperature.png?t={{ cache_ts }}" alt="temperatura" width="350" height="220"></td>
+  <td><img src="/chart/humidity.png?t={{ cache_ts }}" alt="umidita" width="350" height="220"></td>
+</tr>
+<tr>
+  <td><img src="/chart/gas.png?t={{ cache_ts }}" alt="gas" width="350" height="220"></td>
+  <td><img src="/chart/lux.png?t={{ cache_ts }}" alt="luminosita" width="350" height="220"></td>
+</tr>
+</table>
 
 </body>
 </html>
