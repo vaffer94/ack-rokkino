@@ -1,0 +1,43 @@
+/* Stile pensato per e-ink: bianco e nero, font grandi, niente colori */
+body.kindle {
+  font-family: Georgia, serif;
+  color: #000;
+  background: #fff;
+  margin: 12px;
+}
+
+body.kindle h1 {
+  font-size: 28px;
+  margin: 0 0 4px 0;
+}
+
+body.kindle .updated {
+  font-size: 14px;
+  color: #444;
+  margin: 2px 0 10px 0;
+}
+
+body.kindle table.values {
+  border-collapse: collapse;
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+body.kindle table.values td {
+  border: 1px solid #000;
+  padding: 4px 12px;
+}
+
+body.kindle .weather {
+  font-size: 20px;
+  margin: 8px 0;
+}
+
+body.kindle .chart {
+  margin: 10px 0;
+}
+
+body.kindle .chart img {
+  max-width: 100%;
+  height: auto;
+}

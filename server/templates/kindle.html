@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="600">
+<title>Sensori casa</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="kindle">
+
+<h1>Sensori casa</h1>
+<p class="updated">Pagina generata: {{ generated_at }} &middot; si aggiorna da sola ogni 10 minuti</p>
+
+{% if last %}
+<table class="values">
+  <tr><td>Temperatura</td><td>{{ "%.1f"|format(last.temperature) }} &deg;C</td></tr>
+  <tr><td>Umidit&agrave;</td><td>{{ "%.0f"|format(last.humidity) }} %</td></tr>
+  <tr><td>Gas (MQ2)</td><td>{{ last.gas }}</td></tr>
+  <tr><td>Luminosit&agrave;</td><td>{{ "%.0f"|format(last.lux) }} lux</td></tr>
+  <tr><td>Allarme gas</td><td>{% if last.alarm_state %}<b>ATTIVO!</b>{% else %}OK{% endif %}</td></tr>
+</table>
+<p class="updated">Ultima lettura sensori: {{ last_time }}</p>
+{% else %}
+<p>Nessun dato dai sensori oggi.</p>
+{% endif %}
+
+{% if weather %}
+<p class="weather">Fuori: {{ "%.1f"|format(weather.temperature) }} &deg;C,
+{{ "%.0f"|format(weather.humidity) }} %, {{ weather.description }}
+<span class="updated">(ore {{ weather_time }})</span></p>
+{% endif %}
+
+{% for metric in metrics %}
+<div class="chart">
+  <img src="/chart/{{ metric }}.png?t={{ cache_ts }}" alt="{{ metric }}" width="700" height="350">
+</div>
+{% endfor %}
+
+</body>
+</html>
