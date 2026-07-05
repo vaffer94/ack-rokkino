@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard sensori</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/chart.min.js"></script>
+</head>
+<body class="dash">
+
+<header>
+  <h1>Dashboard sensori</h1>
+  <nav id="period-selector">
+    <button data-period="today" class="active">Oggi</button>
+    <button data-period="week">Settimana</button>
+    <button data-period="month">Mese</button>
+  </nav>
+</header>
+
+<p id="status" class="status">Caricamento&hellip;</p>
+
+<main class="grid">
+  <div class="card"><canvas id="chart-temperature"></canvas></div>
+  <div class="card"><canvas id="chart-humidity"></canvas></div>
+  <div class="card"><canvas id="chart-pollen"></canvas></div>
+  <div class="card"><canvas id="chart-gas"></canvas></div>
+  <div class="card"><canvas id="chart-lux"></canvas></div>
+</main>
+
+<script>
+const chartDefs = [
+  { id: "chart-temperature", title: "Temperatura (°C)" },
+  { id: "chart-humidity",    title: "Umidità (%)" },
+  { id: "chart-pollen",      title: "Pollini — media giornaliera, ultimi 15 giorni (grani/m³)" },
+  { id: "chart-gas",         title: "Gas MQ2 e allarme (almeno uno negli ultimi 10 min)" },
+  { id: "chart-lux",         title: "Luminosità (lux)" },
+];
+
+const pollenSpecies = [
+  { key: "grass",   label: "graminacee", color: "#2b8a3e" },
+  { key: "birch",   label: "betulla",    color: "#e8990c" },
+  { key: "alder",   label: "ontano",     color: "#846358" },
+  { key: "mugwort", label: "artemisia",  color: "#862e9c" },
+  { key: "olive",   label: "olivo",      color: "#5c940d" },
+  { key: "ragweed", label: "ambrosia",   color: "#c92a2a" },
+];
+const charts = {};
+let currentPeriod = "today";
+
+function formatTime(epochMs, period) {
+  const d = new Date(epochMs);
+  if (period === "today") {
+    return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) +
+         " " + d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+// asse X numerico (epoch ms): serie con densità diverse (sensori ogni 10 min,
+// meteo ogni ora) restano allineate sull'orario reale
+function baseOptions(title) {
+  return {
+    responsive: true,
+    animation: false,
+    plugins: {
+      title: { display: true, text: title },
+      legend: { display: true, position: "bottom" },
+      tooltip: {
+        callbacks: {
+          title: items => formatTime(items[0].parsed.x, currentPeriod),
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: "linear",
+        ticks: {
+          maxTicksLimit: 8,
+          maxRotation: 0,
+          callback: v => formatTime(v, currentPeriod),
+        },
+      },
+    },
+    elements: { point: { radius: 0 } },
+  };
+}
+
+function formatDay(epochMs) {
+  return new Date(epochMs).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+}
+
+function buildCharts() {
+  for (const def of chartDefs) {
+    const ctx = document.getElementById(def.id);
+    charts[def.id] = new Chart(ctx, {
+      type: "line",
+      data: { datasets: [] },
+      options: baseOptions(def.title),
+    });
+  }
+  // il grafico pollini è sempre giornaliero: asse e tooltip con la data
+  const pollenOpts = charts["chart-pollen"].options;
+  pollenOpts.scales.x.ticks.callback = v => formatDay(v);
+  pollenOpts.plugins.tooltip.callbacks.title = items => formatDay(items[0].parsed.x);
+
+  // asse destro ALTO/BASSO per la linea allarme nel grafico gas
+  charts["chart-gas"].options.scales.y1 = {
+    position: "right",
+    min: -0.05,
+    max: 1.05,
+    ticks: { stepSize: 1, callback: v => v === 1 ? "ALTO" : v === 0 ? "BASSO" : "" },
+    grid: { drawOnChartArea: false },
+  };
+}
+
+function toPoints(rows, key) {
+  return rows.map(r => ({ x: new Date(r.timestamp).getTime(), y: r[key] }));
+}
+
+function updateCharts(data) {
+  const series = {
+    "chart-temperature": [
+      { label: "interna", data: toPoints(data.sensors, "temperature"),
+        borderColor: "#d9480f", backgroundColor: "#d9480f", borderWidth: 2, tension: 0.2 },
+      { label: "esterna", data: toPoints(data.weather, "temperature"),
+        borderColor: "#1971c2", backgroundColor: "#1971c2", borderWidth: 2,
+        borderDash: [6, 4], tension: 0.2 },
+    ],
+    "chart-humidity": [
+      { label: "interna", data: toPoints(data.sensors, "humidity"),
+        borderColor: "#2b8a3e", backgroundColor: "#2b8a3e", borderWidth: 2, tension: 0.2 },
+      { label: "esterna", data: toPoints(data.weather, "humidity"),
+        borderColor: "#74b816", backgroundColor: "#74b816", borderWidth: 2,
+        borderDash: [6, 4], tension: 0.2 },
+    ],
+    "chart-pollen": pollenSpecies.map(s => (
+      { label: s.label,
+        data: data.pollen.map(r => ({ x: new Date(r.day).getTime(), y: r[s.key] })),
+        borderColor: s.color, backgroundColor: s.color, borderWidth: 2,
+        tension: 0.2, pointRadius: 3 }
+    )),
+    "chart-gas": [
+      { label: "MQ2 (grezzo)", data: toPoints(data.sensors, "gas"),
+        borderColor: "#862e9c", backgroundColor: "#862e9c", borderWidth: 2,
+        tension: 0.2, yAxisID: "y" },
+      { label: "allarme", data: toPoints(data.sensors, "alarm_state"),
+        borderColor: "#c92a2a", backgroundColor: "#c92a2a", borderWidth: 2,
+        stepped: true, yAxisID: "y1" },
+    ],
+    "chart-lux": [
+      { label: "lux", data: toPoints(data.sensors, "lux"),
+        borderColor: "#e8990c", backgroundColor: "#e8990c", borderWidth: 2, tension: 0.2 },
+    ],
+  };
+
+  for (const [id, datasets] of Object.entries(series)) {
+    charts[id].data.datasets = datasets;
+    charts[id].update();
+  }
+}
+
+async function loadPeriod(period) {
+  currentPeriod = period;
+  const status = document.getElementById("status");
+  status.textContent = "Caricamento…";
+  try {
+    const resp = await fetch(`/api/data?period=${period}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    updateCharts(data);
+    const n = data.sensors.length;
+    const last = n ? formatTime(new Date(data.sensors[n - 1].timestamp).getTime(), period) : "-";
+    status.textContent = `${n} letture · ultima: ${last}`;
+  } catch (err) {
+    status.textContent = `Errore nel caricamento dati: ${err.message}`;
+  }
+}
+
+document.querySelectorAll("#period-selector button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#period-selector button")
+      .forEach(b => b.classList.toggle("active", b === btn));
+    loadPeriod(btn.dataset.period);
+  });
+});
+
+buildCharts();
+loadPeriod("today");
+// aggiornamento automatico ogni 5 minuti
+setInterval(() => loadPeriod(currentPeriod), 5 * 60 * 1000);
+</script>
+
+</body>
+</html>

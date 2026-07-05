@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+.DS_Store
+
+# Segreti (mai committare) — in qualunque cartella si trovino
+arduino_secrets.h
+.env

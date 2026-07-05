@@ -1,0 +1,13 @@
+services:
+  sensors:
+    build: .
+    ports:
+      # host 5001 (sul Mac la 5000 è di AirPlay); teniamo 5001 anche sul
+      # Raspberry, così SERVER_PORT nello sketch Arduino non cambia mai
+      - "5001:5000"
+    volumes:
+      # il DB SQLite vive fuori dal container: sopravvive a rebuild e riavvii
+      - ./data:/app/data
+    environment:
+      - TZ=Europe/Rome
+    restart: unless-stopped

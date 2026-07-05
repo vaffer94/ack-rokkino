@@ -1,0 +1,113 @@
+/* Stile pensato per e-ink: bianco e nero, compatto per stare in una schermata */
+body.kindle {
+  font-family: Georgia, serif;
+  color: #000;
+  background: #fff;
+  margin: 6px;
+}
+
+body.kindle h1 {
+  font-size: 20px;
+  margin: 0 0 4px 0;
+}
+
+body.kindle .updated {
+  font-size: 11px;
+  font-weight: normal;
+  color: #444;
+  margin: 2px 0 6px 0;
+}
+
+body.kindle table.layout {
+  border-collapse: collapse;
+}
+
+body.kindle table.layout td {
+  padding: 2px 6px 2px 0;
+  vertical-align: top;
+}
+
+body.kindle table.values {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+body.kindle table.values td {
+  border: 1px solid #000;
+  padding: 2px 8px;
+}
+
+body.kindle img {
+  display: block;
+}
+
+/* ---------- Dashboard interattiva ---------- */
+body.dash {
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #f1f3f5;
+  color: #212529;
+  margin: 0;
+  padding: 16px;
+}
+
+body.dash header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.dash h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+body.dash #period-selector button {
+  font-size: 15px;
+  padding: 6px 16px;
+  border: 1px solid #ced4da;
+  background: #fff;
+  cursor: pointer;
+}
+
+body.dash #period-selector button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+body.dash #period-selector button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+body.dash #period-selector button.active {
+  background: #1971c2;
+  border-color: #1971c2;
+  color: #fff;
+}
+
+body.dash .status {
+  font-size: 13px;
+  color: #666;
+  margin: 8px 0;
+}
+
+body.dash .grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+body.dash .card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 480px) {
+  body.dash .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flask-server",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": ["PORT=5001", "server/venv/bin/python", "server/app.py"],
+      "port": 5001
+    }
+  ]
+}

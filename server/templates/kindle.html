@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="600">
+<title>Sensori casa</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="kindle">
+
+<h1>Sensori casa <span class="updated">&mdash; {{ generated_at }}, refresh ogni 10 min</span></h1>
+
+{% if last %}
+<table class="layout">
+<tr>
+<td>
+  <table class="values">
+    <tr><td>Temperatura</td><td>{{ "%.1f"|format(last.temperature) }} &deg;C</td></tr>
+    <tr><td>Umidit&agrave;</td><td>{{ "%.0f"|format(last.humidity) }} %</td></tr>
+    <tr><td>Luminosit&agrave;</td><td>{{ "%.0f"|format(last.lux) }} lux</td></tr>
+  </table>
+</td>
+<td>
+  <table class="values">
+    <tr><td>Gas (MQ2)</td><td>{{ last.gas }}</td></tr>
+    <tr><td>Allarme gas</td><td>{% if last.alarm_state %}<b>ATTIVO!</b>{% else %}OK{% endif %}</td></tr>
+    {% if weather %}
+    <tr><td>Fuori</td><td>{{ "%.1f"|format(weather.temperature) }} &deg;C, {{ "%.0f"|format(weather.humidity) }} %, {{ weather.description }}</td></tr>
+    {% endif %}
+    {% if pollen and pollen.grass is not none %}
+    <tr><td>Graminacee</td><td>{{ "%.0f"|format(pollen.grass) }} grani/m&sup3;</td></tr>
+    {% endif %}
+  </table>
+</td>
+</tr>
+</table>
+<p class="updated">Ultima lettura sensori: {{ last_time }}{% if weather %} &middot; meteo: {{ weather_time }}{% endif %}</p>
+{% else %}
+<p>Nessun dato dai sensori oggi.</p>
+{% endif %}
+
+<table class="layout">
+<tr>
+  <td><img src="/chart/temperature.png?t={{ cache_ts }}" alt="temperatura" width="350" height="220"></td>
+  <td><img src="/chart/humidity.png?t={{ cache_ts }}" alt="umidita" width="350" height="220"></td>
+</tr>
+<tr>
+  <td><img src="/chart/gas.png?t={{ cache_ts }}" alt="gas" width="350" height="220"></td>
+  <td><img src="/chart/lux.png?t={{ cache_ts }}" alt="luminosita" width="350" height="220"></td>
+</tr>
+<tr>
+  <td><img src="/chart/pollen.png?t={{ cache_ts }}" alt="pollini" width="350" height="220"></td>
+</tr>
+</table>
+
+</body>
+</html>
