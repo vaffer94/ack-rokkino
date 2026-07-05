@@ -24,7 +24,7 @@ TZ = ZoneInfo("Europe/Rome")
 METRICS = {
     "temperature": ("Temperatura (°C)", "temperature"),
     "humidity": ("Umidità (%)", "humidity"),
-    "gas": ("Gas MQ2", "gas"),
+    "gas": ("Gas MQ2 e allarme", "gas"),
     "lux": ("Luminosità (lux)", "lux"),
     "pollen": ("Pollini, media giorno (grani/m³)", None),
 }
@@ -97,6 +97,20 @@ def render_chart(metric):
                     ax.plot(w_times, w_values, color="black", linewidth=1.5,
                             linestyle="--", label="esterna")
                 ax.legend(fontsize=8, frameon=False)
+            elif metric == "gas":
+                ax.plot(times, values, color="black", linewidth=1.5, label="MQ2")
+                # allarme (almeno uno negli ultimi 10 min) su asse destro ALTO/BASSO
+                _, alarms = _series("sensor_readings", "alarm_state")
+                ax2 = ax.twinx()
+                ax2.plot(times, alarms, color="black", linewidth=1.2,
+                         linestyle="--", drawstyle="steps-post", label="allarme")
+                ax2.set_ylim(-0.08, 1.35)  # spazio sopra per la legenda
+                ax2.set_yticks([0, 1])
+                ax2.set_yticklabels(["BASSO", "ALTO"], fontsize=7)
+                handles1, labels1 = ax.get_legend_handles_labels()
+                handles2, labels2 = ax2.get_legend_handles_labels()
+                ax.legend(handles1 + handles2, labels1 + labels2,
+                          fontsize=8, frameon=False)
             else:
                 ax.plot(times, values, color="black", linewidth=1.5)
 

@@ -107,9 +107,11 @@ def chart_png(metric):
 
 
 if __name__ == "__main__":
+    # FLASK_DEBUG=0 nel container Docker; in sviluppo il default è debug attivo
+    debug = os.environ.get("FLASK_DEBUG", "1") == "1"
     # In debug il reloader di Flask esegue app.py due volte (processo padre + figlio):
     # lo scheduler va avviato solo nel figlio, dove WERKZEUG_RUN_MAIN è settato
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    if not debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         weather.start_scheduler()
     # Sul Mac la porta 5000 è occupata da AirPlay Receiver: usare PORT=5001
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=debug)

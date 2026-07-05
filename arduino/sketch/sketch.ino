@@ -155,7 +155,8 @@ int latestMq2Value = 0;
 
 bool alarmLatched = false;
 
-int alarmState = 0; // logica per Alexa
+int alarmState = 0;    // stato istantaneo (logica per Alexa / ThingSpeak)
+int alarmInWindow = 0; // 1 se c'è stato almeno un allarme dall'ultimo invio al server
 
 // ---------- Mario main theme melody
 int melody[] = {
@@ -325,6 +326,7 @@ void loop() {
 
     if (danger) {
         alarmState = 1;
+        alarmInWindow = 1; // latch: resta a 1 fino al prossimo invio al server
       } else {
         alarmState = 0;
       }
@@ -424,14 +426,16 @@ void loop() {
       dataFile.print(uvb); dataFile.print(",");
       dataFile.print(uvIndex); dataFile.print(",");
       dataFile.print(mq2Value); dataFile.print(",");
-      dataFile.println(alarmState);
+      dataFile.println(alarmInWindow);
       dataFile.close();
       Serial.println("SD log scritto");
     } else {
       Serial.println("SD: apertura data.csv fallita");
     }
 
-    sendToServer(temperature, humidity, mq2Value, illuminance, alarmState);
+    // al server e alla SD va il latch: "almeno un allarme negli ultimi 10 minuti"
+    sendToServer(temperature, humidity, mq2Value, illuminance, alarmInWindow);
+    alarmInWindow = 0;
   }
 }
 

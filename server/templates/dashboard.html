@@ -33,7 +33,7 @@ const chartDefs = [
   { id: "chart-temperature", title: "Temperatura (°C)" },
   { id: "chart-humidity",    title: "Umidità (%)" },
   { id: "chart-pollen",      title: "Pollini — media giornaliera, ultimi 15 giorni (grani/m³)" },
-  { id: "chart-gas",         title: "Gas MQ2" },
+  { id: "chart-gas",         title: "Gas MQ2 e allarme (almeno uno negli ultimi 10 min)" },
   { id: "chart-lux",         title: "Luminosità (lux)" },
 ];
 
@@ -103,6 +103,15 @@ function buildCharts() {
   const pollenOpts = charts["chart-pollen"].options;
   pollenOpts.scales.x.ticks.callback = v => formatDay(v);
   pollenOpts.plugins.tooltip.callbacks.title = items => formatDay(items[0].parsed.x);
+
+  // asse destro ALTO/BASSO per la linea allarme nel grafico gas
+  charts["chart-gas"].options.scales.y1 = {
+    position: "right",
+    min: -0.05,
+    max: 1.05,
+    ticks: { stepSize: 1, callback: v => v === 1 ? "ALTO" : v === 0 ? "BASSO" : "" },
+    grid: { drawOnChartArea: false },
+  };
 }
 
 function toPoints(rows, key) {
@@ -133,7 +142,11 @@ function updateCharts(data) {
     )),
     "chart-gas": [
       { label: "MQ2 (grezzo)", data: toPoints(data.sensors, "gas"),
-        borderColor: "#862e9c", backgroundColor: "#862e9c", borderWidth: 2, tension: 0.2 },
+        borderColor: "#862e9c", backgroundColor: "#862e9c", borderWidth: 2,
+        tension: 0.2, yAxisID: "y" },
+      { label: "allarme", data: toPoints(data.sensors, "alarm_state"),
+        borderColor: "#c92a2a", backgroundColor: "#c92a2a", borderWidth: 2,
+        stepped: true, yAxisID: "y1" },
     ],
     "chart-lux": [
       { label: "lux", data: toPoints(data.sensors, "lux"),

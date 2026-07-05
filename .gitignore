@@ -4,6 +4,6 @@ __pycache__/
 *.db
 .DS_Store
 
-# Segreti (mai committare)
-arduino/arduino_secrets.h
+# Segreti (mai committare) — in qualunque cartella si trovino
+arduino_secrets.h
 .env
