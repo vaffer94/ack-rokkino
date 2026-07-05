@@ -138,7 +138,10 @@ const char* writeAPIKey = SECRET_TS_WRITE_APIKEY;
 
 // ---------- Timing ----------
 unsigned long lastUpdate = 0;
-const unsigned long interval = 20000; // 20 seconds
+const unsigned long interval = 20000; // 20 seconds (ThingSpeak)
+
+unsigned long lastSdLog = 0;
+const unsigned long sdLogInterval = 600000UL; // 10 minuti (log su SD)
 
 // ----------- allarm logic --------
 
@@ -287,7 +290,7 @@ void setup() {
   // Create header if file is new
   if (!SD.exists("data.csv")) {
     dataFile = SD.open("data.csv", FILE_WRITE);
-    dataFile.println("time,temperature,humidity,pressure,lux,uva,uvb,uvIndex,mq2");
+    dataFile.println("time,temperature,humidity,pressure,lux,uva,uvb,uvIndex,mq2,alarm_state");
     dataFile.close();
   }
 
@@ -357,28 +360,7 @@ void loop() {
     float humidity    = ENV.readHumidity();
     float pressure    = ENV.readPressure();
     float illuminance = ENV.readIlluminance();
-    float uva         = ENV.readUVA();
-    float uvb         = ENV.readUVB();
-    float uvIndex     = ENV.readUVIndex();
     int mq2Value      = analogRead(MQ2_PIN);
-
-    unsigned long timestamp = millis() / 1000;
-
-    // ---------- Save to SD ----------
-    dataFile = SD.open("data.csv", FILE_WRITE);
-    if (dataFile) {
-      dataFile.print(timestamp); dataFile.print(",");
-      dataFile.print(temperature); dataFile.print(",");
-      dataFile.print(humidity); dataFile.print(",");
-      dataFile.print(pressure); dataFile.print(",");
-      dataFile.print(illuminance); dataFile.print(",");
-      dataFile.print(uva); dataFile.print(",");
-      dataFile.print(uvb); dataFile.print(",");
-      dataFile.print(uvIndex); dataFile.print(",");
-      dataFile.println(mq2Value); dataFile.print(",");
-      dataFile.println(alarmState); dataFile.print(";");
-      dataFile.close();
-    }
 
     // ---------- Send to ThingSpeak ----------
     ThingSpeak.setField(1, temperature);
@@ -413,6 +395,41 @@ void loop() {
     // } else {
     //   Serial.println("Failed to open file for verification");
     // }
+  }
+
+
+  // -------- Log su SD ogni 10 minuti --------
+  if (millis() - lastSdLog >= sdLogInterval) {
+    lastSdLog = millis();
+
+    float temperature = ENV.readTemperature() - 4.0F;
+    float humidity    = ENV.readHumidity();
+    float pressure    = ENV.readPressure();
+    float illuminance = ENV.readIlluminance();
+    float uva         = ENV.readUVA();
+    float uvb         = ENV.readUVB();
+    float uvIndex     = ENV.readUVIndex();
+    int mq2Value      = analogRead(MQ2_PIN);
+
+    unsigned long timestamp = millis() / 1000;
+
+    dataFile = SD.open("data.csv", FILE_WRITE);
+    if (dataFile) {
+      dataFile.print(timestamp); dataFile.print(",");
+      dataFile.print(temperature); dataFile.print(",");
+      dataFile.print(humidity); dataFile.print(",");
+      dataFile.print(pressure); dataFile.print(",");
+      dataFile.print(illuminance); dataFile.print(",");
+      dataFile.print(uva); dataFile.print(",");
+      dataFile.print(uvb); dataFile.print(",");
+      dataFile.print(uvIndex); dataFile.print(",");
+      dataFile.print(mq2Value); dataFile.print(",");
+      dataFile.println(alarmState);
+      dataFile.close();
+      Serial.println("SD log scritto");
+    } else {
+      Serial.println("SD: apertura data.csv fallita");
+    }
   }
 }
 

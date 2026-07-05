@@ -3,6 +3,7 @@ import os
 from flask import Flask, jsonify, request
 
 import db
+import weather
 
 app = Flask(__name__)
 db.init_db()
@@ -35,5 +36,9 @@ def receive_sensor_data():
 
 
 if __name__ == "__main__":
+    # In debug il reloader di Flask esegue app.py due volte (processo padre + figlio):
+    # lo scheduler va avviato solo nel figlio, dove WERKZEUG_RUN_MAIN è settato
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        weather.start_scheduler()
     # Sul Mac la porta 5000 è occupata da AirPlay Receiver: usare PORT=5001
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
