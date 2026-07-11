@@ -63,6 +63,17 @@ def api_data():
     )
 
 
+@app.get("/api/latest")
+def api_latest():
+    limit = request.args.get("limit", 15, type=int)
+    return jsonify(
+        {
+            "sensors": db.get_latest_readings("sensor_readings", limit),
+            "weather": db.get_latest_readings("weather_readings", limit),
+        }
+    )
+
+
 @app.get("/dashboard")
 def dashboard():
     return render_template("dashboard.html")

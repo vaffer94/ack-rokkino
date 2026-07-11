@@ -111,3 +111,50 @@ body.dash .card {
     grid-template-columns: 1fr;
   }
 }
+
+body.dash .table-card h2 {
+  margin: 0 0 12px 0;
+  font-size: 17px;
+}
+
+body.dash .tables-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+body.dash .tables-wrap > div {
+  flex: 1 1 320px;
+  overflow-x: auto;
+}
+
+body.dash .tables-wrap h3 {
+  font-size: 14px;
+  margin: 0 0 6px 0;
+  color: #495057;
+}
+
+body.dash table.data-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+body.dash table.data-table th,
+body.dash table.data-table td {
+  border-bottom: 1px solid #e9ecef;
+  padding: 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+body.dash table.data-table th:first-child,
+body.dash table.data-table td:first-child {
+  text-align: left;
+}
+
+body.dash table.data-table thead th {
+  color: #868e96;
+  font-weight: 600;
+  font-size: 12px;
+}

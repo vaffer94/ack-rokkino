@@ -26,6 +26,30 @@
   <div class="card"><canvas id="chart-pollen"></canvas></div>
   <div class="card"><canvas id="chart-gas"></canvas></div>
   <div class="card"><canvas id="chart-lux"></canvas></div>
+
+  <section class="card table-card">
+    <h2>Ultimi dati registrati</h2>
+    <div class="tables-wrap">
+      <div>
+        <h3>Sensori (interni)</h3>
+        <table class="data-table" id="table-sensors">
+          <thead>
+            <tr><th>Orario</th><th>Temp (°C)</th><th>Umidità (%)</th><th>Gas</th><th>Lux</th><th>Allarme</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div>
+        <h3>Meteo (API esterna)</h3>
+        <table class="data-table" id="table-weather">
+          <thead>
+            <tr><th>Orario</th><th>Temp (°C)</th><th>Umidità (%)</th><th>Condizioni</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -89,6 +113,127 @@ function baseOptions(title) {
 function formatDay(epochMs) {
   return new Date(epochMs).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
 }
+
+function formatDateTime(epochMs) {
+  const d = new Date(epochMs);
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) +
+         " " + d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+// raggio (in punti) usato per "assorbire" i picchi ravvicinati dovuti al
+// rumore di misura: fra due massimi (o due minimi) più vicini di così si
+// tiene solo il più estremo. Su settimana e mese i punti sono più fitti,
+// quindi il raggio cresce di conseguenza
+const EXTREMA_RADIUS = { today: 4, week: 8, month: 15 };
+
+// tiene solo il candidato più estremo in ogni gruppo di punti vicini fra
+// loro (entro `radius`), scartando gli altri: evita grappoli di pallini
+// ravvicinati generati dal rumore invece che da un vero massimo/minimo
+function suppressNearby(candidates, radius, better) {
+  const ordered = [...candidates].sort(better);
+  const accepted = [];
+  for (const c of ordered) {
+    if (accepted.every(a => Math.abs(a.i - c.i) > radius)) {
+      accepted.push(c);
+    }
+  }
+  return accepted;
+}
+
+// media mobile: appiattisce le micro-oscillazioni dovute al rumore del
+// sensore prima di cercare i massimi/minimi, senza alterare i valori
+// effettivamente mostrati nelle etichette (che restano quelli grezzi)
+function movingAverage(values, radius) {
+  const n = values.length;
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - radius);
+    const hi = Math.min(n - 1, i + radius);
+    let sum = 0;
+    for (let j = lo; j <= hi; j++) sum += values[j];
+    out[i] = sum / (hi - lo + 1);
+  }
+  return out;
+}
+
+// individua i massimi/minimi locali "veri" di una serie di valori (non ogni
+// piccola oscillazione dovuta al rumore del sensore). L'ultimo punto della
+// serie è sempre incluso (ultima misura registrata)
+function findExtrema(values, radius) {
+  const marks = new Map(); // indice -> "max" | "min" | "last"
+  const n = values.length;
+  if (n === 0) return marks;
+
+  const maxCandidates = [];
+  const minCandidates = [];
+  for (let i = 1; i < n - 1; i++) {
+    const prev = values[i - 1];
+    const next = values[i + 1];
+    if (values[i] >= prev && values[i] >= next && (values[i] > prev || values[i] > next)) {
+      maxCandidates.push({ i, value: values[i] });
+    }
+    if (values[i] <= prev && values[i] <= next && (values[i] < prev || values[i] < next)) {
+      minCandidates.push({ i, value: values[i] });
+    }
+  }
+
+  suppressNearby(maxCandidates, radius, (a, b) => b.value - a.value)
+    .forEach(c => marks.set(c.i, "max"));
+  suppressNearby(minCandidates, radius, (a, b) => a.value - b.value)
+    .forEach(c => marks.set(c.i, "min"));
+  marks.set(n - 1, "last");
+  return marks;
+}
+
+function formatValue(v) {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+// marca un dataset coi pallini su massimi/minimi/ultima misura + etichetta
+// col valore, sempre visibile (non solo al passaggio del mouse)
+function markExtremaPoints(dataset, period, radiusMultiplier = 1) {
+  const radius = Math.round((EXTREMA_RADIUS[period] || 4) * radiusMultiplier);
+  const smoothed = movingAverage(dataset.data.map(p => p.y), radius);
+  const marks = findExtrema(smoothed, radius);
+  dataset._valueMarks = marks;
+  dataset.pointRadius = ctx => marks.has(ctx.dataIndex) ? 3 : 0;
+  dataset.pointHoverRadius = 5;
+  return dataset;
+}
+
+// disegna un'etichetta col valore sopra (massimi/ultima) o sotto (minimi)
+// ogni pallino marcato, sempre visibile senza dover passare il mouse
+const valueLabelsPlugin = {
+  id: "valueLabels",
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, dsIndex) => {
+      const marks = dataset._valueMarks;
+      if (!marks) return;
+      const meta = chart.getDatasetMeta(dsIndex);
+      if (meta.hidden) return;
+      ctx.save();
+      ctx.font = "11px -apple-system, sans-serif";
+      ctx.fillStyle = "#000";
+      ctx.textAlign = "center";
+      marks.forEach((type, i) => {
+        const point = meta.data[i];
+        const raw = dataset.data[i];
+        if (!point || !raw) return;
+        const label = formatValue(raw.y);
+        if (type === "min") {
+          ctx.textBaseline = "top";
+          ctx.fillText(label, point.x, point.y + 6);
+        } else {
+          ctx.textBaseline = "bottom";
+          ctx.fillText(label, point.x, point.y - 6);
+        }
+      });
+      ctx.restore();
+    });
+  },
+};
+Chart.register(valueLabelsPlugin);
 
 function buildCharts() {
   for (const def of chartDefs) {
@@ -154,6 +299,18 @@ function updateCharts(data) {
     ],
   };
 
+  // pallini + etichetta valore sui massimi/minimi locali e sull'ultima
+  // misura, per ogni serie continua (non per la linea a gradini "allarme").
+  // Il gas MQ2 grezzo è molto più "nervoso" delle altre grandezze: una
+  // finestra più ampia diluisce i pallini così da vederne meno
+  for (const id of ["chart-temperature", "chart-humidity", "chart-gas", "chart-lux"]) {
+    const radiusMultiplier = id === "chart-gas" ? 4 : 1;
+    for (const dataset of series[id]) {
+      if (dataset.stepped) continue;
+      markExtremaPoints(dataset, currentPeriod, radiusMultiplier);
+    }
+  }
+
   for (const [id, datasets] of Object.entries(series)) {
     charts[id].data.datasets = datasets;
     charts[id].update();
@@ -177,6 +334,40 @@ async function loadPeriod(period) {
   }
 }
 
+const sensorCols = [
+  { fmt: r => formatDateTime(new Date(r.timestamp).getTime()) },
+  { fmt: r => r.temperature.toFixed(1) },
+  { fmt: r => r.humidity.toFixed(1) },
+  { fmt: r => r.gas },
+  { fmt: r => r.lux.toFixed(1) },
+  { fmt: r => r.alarm_state === 1 ? "ALTO" : "BASSO" },
+];
+const weatherCols = [
+  { fmt: r => formatDateTime(new Date(r.timestamp).getTime()) },
+  { fmt: r => r.temperature.toFixed(1) },
+  { fmt: r => r.humidity.toFixed(1) },
+  { fmt: r => r.description ?? "-" },
+];
+
+function fillTable(tableId, rows, cols) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  tbody.innerHTML = rows.length
+    ? rows.map(r => `<tr>${cols.map(c => `<td>${c.fmt(r)}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${cols.length}">Nessun dato</td></tr>`;
+}
+
+async function loadLatest() {
+  try {
+    const resp = await fetch("/api/latest?limit=15");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    fillTable("table-sensors", data.sensors, sensorCols);
+    fillTable("table-weather", data.weather, weatherCols);
+  } catch (err) {
+    console.error("Errore nel caricamento degli ultimi dati:", err);
+  }
+}
+
 document.querySelectorAll("#period-selector button").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("#period-selector button")
@@ -187,8 +378,12 @@ document.querySelectorAll("#period-selector button").forEach(btn => {
 
 buildCharts();
 loadPeriod("today");
+loadLatest();
 // aggiornamento automatico ogni 5 minuti
-setInterval(() => loadPeriod(currentPeriod), 5 * 60 * 1000);
+setInterval(() => {
+  loadPeriod(currentPeriod);
+  loadLatest();
+}, 5 * 60 * 1000);
 </script>
 
 </body>

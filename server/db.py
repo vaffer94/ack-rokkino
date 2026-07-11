@@ -128,6 +128,19 @@ def get_daily_pollen(days=15):
     return [dict(row) for row in rows]
 
 
+def get_latest_readings(table, limit=15):
+    """Ultime `limit` letture, più recente per prima."""
+    if table not in ("sensor_readings", "weather_readings"):
+        raise ValueError(f"Tabella sconosciuta: {table}")
+    conn = get_connection()
+    rows = conn.execute(
+        f"SELECT * FROM {table} ORDER BY timestamp DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
 def get_readings(table, period="today"):
     if table not in ("sensor_readings", "weather_readings", "pollen_readings"):
         raise ValueError(f"Tabella sconosciuta: {table}")
