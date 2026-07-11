@@ -168,6 +168,34 @@ i punti 1 e 3 (credenziali WiFi).
 - Pagina Kindle: `http://192.168.1.17:5001/kindle`
 - Dashboard: `http://192.168.1.17:5001/dashboard`
 
+## ✅ Fatto l'11/07/2026 — notifiche Telegram + dashboard
+
+Lavoro sul branch `feature-closeWindow` (non ancora mergiato su `main`):
+
+- **Promemoria "chiudi la finestra"** (`server/window_alert.py`): rileva da
+  solo quando la finestra è aperta (calo sostenuto di temperatura interna,
+  non un singolo scatto isolato) e avvisa su Telegram quando l'esterno torna
+  a scaldare — solo d'estate (esterna > 25°). Dettagli in
+  `docs/funzionale.md` e nel README (sezione "Notifiche Telegram").
+- **Notifica gas su Telegram**: era in lista come idea da fare con ntfy.sh,
+  realizzata invece riusando la stessa infrastruttura Telegram del punto
+  precedente (poche righe in `app.py`). Notifica solo al primo 1 dopo uno 0,
+  non ripete finché l'allarme resta attivo.
+- **Tabelle "Ultimi dati registrati"** in dashboard: ultime 15 letture
+  sensori + meteo, sempre le più recenti indipendentemente dal periodo
+  scelto (nuovo endpoint `/api/latest`).
+- **Etichette valore sui grafici**: pallini + numero sui massimi/minimi
+  locali e sull'ultima misura, sempre visibili (non solo al passaggio del
+  mouse). Densità adattata alla larghezza reale del grafico e al tipo di
+  dispositivo (touch vs mouse, non solo la larghezza della finestra).
+  ⚠️ **Non ancora soddisfacente su mobile** secondo Vania (settimana/mese
+  restano troppo fitti) — da rivedere, vedi "Prossime idee" sotto.
+
+Per portare questo branch sul Raspberry: `git fetch && git checkout
+feature-closeWindow`, creare `server/.env` da `.env.example` con le
+credenziali Telegram (vedi `docs/deploy.md`), poi il solito
+`docker compose up --build -d`.
+
 ## 💡 Prossime idee (non urgenti)
 
 ### CI/CD — deploy automatico sul Raspberry
@@ -189,10 +217,12 @@ chiamarlo. Due strade, dalla più semplice:
 Da fare eventualmente DOPO il trasloco, a sistema stabile.
 
 ### Prossime candidate (miglior rapporto utilità/sforzo)
-1. **Notifica push sul telefono quando scatta l'allarme gas**: oggi buzzer e
-   Alexa avvisano solo chi è in casa. Il server sa quando arriva un
-   `alarm_state=1` → notifica push col servizio gratuito ntfy.sh (~10 righe
-   in app.py). Probabilmente l'idea più utile di tutte.
+1. **Densità delle etichette sui grafici da mobile — ancora da sistemare**:
+   dopo diversi tentativi (raggio in pixel, poi raggruppamento per giorno di
+   calendario, poi rilevazione touch invece che larghezza), su settimana e
+   mese resta "troppo fitto" secondo Vania. Prossimo tentativo da discutere
+   con lei: forse ridurre ulteriormente, o cambiare approccio (es. mostrare
+   le etichette solo al tap su un punto invece che tutte insieme).
 2. **Avviso "Arduino muto"**: se l'Arduino si blocca o perde la rete, i
    grafici si fermano in silenzio. Banner sul Kindle "⚠ nessun dato da X ore"
    quando l'ultimo POST è più vecchio di 30 min (+ eventuale notifica ntfy).

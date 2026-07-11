@@ -12,7 +12,38 @@ Raspberry si aggiorna con `git pull` + rebuild del container**.
 - al Raspberry si accede con **Raspberry Pi Connect** (da browser:
   [connect.raspberrypi.com](https://connect.raspberrypi.com) → login → shell
   sul dispositivo `vafferRaspPi`). Non serve SSH né conoscere l'IP per
-  amministrarlo — Connect funziona anche da fuori casa.
+  amministrarlo — Connect funziona anche da fuori casa;
+- `server/.env` presente (non committato, come `arduino_secrets.h`) con le
+  credenziali del bot Telegram — vedi sezione dedicata più sotto. Senza
+  questo file `docker compose up` si rifiuta di partire (l'`env_file` in
+  `docker-compose.yml` punta lì).
+
+## Notifiche Telegram: creare il bot e configurare `server/.env`
+
+Da fare una volta sola (o quando si vuole cambiare bot/destinatario):
+
+1. Su Telegram, cerca **@BotFather**, apri la chat, `/newbot` e segui le
+   istruzioni (nome + username che finisce per `bot`) → ottieni un **token**
+   tipo `123456789:AAHdq7...`.
+2. Manda un messaggio qualsiasi al bot appena creato, poi apri nel browser
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`: nel JSON cerca
+   `"chat":{"id": ...}` → quel numero è il **chat_id**.
+3. Sul Raspberry:
+   ```bash
+   cd ~/ack-rokkino/server
+   cp .env.example .env
+   nano .env   # incollare TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID
+   ```
+4. `docker compose up --build -d` (o semplice `docker compose up -d` se il
+   codice non è cambiato, basta far ripartire il container per rileggere `.env`).
+
+Per testare che arrivi davvero una notifica, senza dover aspettare un evento
+vero, si può simulare un allarme gas:
+```bash
+curl -X POST http://127.0.0.1:5001/api/sensors \
+  -H "Content-Type: application/json" \
+  -d '{"temperature": 25.0, "humidity": 45, "gas": 900, "lux": 100, "alarm_state": 1}'
+```
 
 ## Flusso normale: modifica al server (Python, template, CSS)
 
@@ -102,6 +133,8 @@ sqlite3 ~/ack-rokkino/server/data/sensors.db "SELECT COUNT(*) FROM sensor_readin
 | `git pull` rifiutato sul Pi per modifiche locali | sul Pi non si edita mai a mano: `git checkout -- .` e ripetere il pull |
 | Grafici vuoti dopo il deploy | normale se il DB è nuovo: si riempiono al primo POST (10 min) e al primo giro meteo (subito) |
 | Il rebuild fallisce per rete/pacchetti | riprovare; se persiste: `docker system prune` e di nuovo `docker compose up --build -d` |
+| `docker compose up` si rifiuta di partire lamentando `.env` | manca `server/.env` (vedi sezione Notifiche Telegram sopra): copiarlo da `.env.example` |
+| Notifiche Telegram non arrivano | controllare `docker compose logs` per righe `[window_alert] ...`: se dicono "non configurati" mancano le credenziali in `.env`; se c'è un errore HTTP, controllare che token/chat_id siano corretti (rigenerare con `/newbot` e `getUpdates` se in dubbio) |
 
 ## Backup del database (consigliato ogni tanto)
 

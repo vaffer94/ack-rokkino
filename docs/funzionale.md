@@ -46,27 +46,66 @@ Per Mac e telefono, interattiva:
 - selettore periodo **Oggi / Settimana / Mese** (vale per tutti i grafici
   tranne i pollini, che restano sui 15 giorni);
 - il grafico pollini mostra tutte e 6 le specie;
+- oltre alla linea, sui grafici compaiono pallini con il **valore numerico**
+  sui massimi/minimi locali e sull'ultima misura, sempre visibili (non solo
+  al passaggio del mouse); quanti punti vengono etichettati si adatta alla
+  larghezza dello schermo per restare leggibile — su telefono la densità è
+  **ancora in via di aggiustamento**, non del tutto soddisfacente;
+- in fondo alla pagina, due tabelle con le **ultime letture grezze**
+  (sensori interni e meteo esterno), sempre le più recenti disponibili
+  indipendentemente dal periodo scelto sopra;
 - si aggiorna da sola ogni 5 minuti.
 
 ## L'allarme gas: come funziona davvero
 
-Tre livelli di reazione, dal più immediato al più "storico":
+Quattro livelli di reazione, dal più immediato al più "storico":
 
 1. **Subito (entro 10-40 secondi)**: l'Arduino controlla il gas ogni 10
    secondi; se rileva un aumento sospetto e persistente (3 letture consecutive
    oltre il +20% rispetto alla base), suona il buzzer con la melodia e manda
    l'alert ad Alexa tramite VoiceMonkey. Questo non dipende dal Raspberry:
    funziona anche se il server è spento.
-2. **Sul Kindle e in dashboard**: il campo "Allarme gas" nella tabella e la
+2. **Notifica Telegram**: appena il Raspberry riceve una lettura con allarme
+   attivo (e non l'aveva già segnalato), manda subito un messaggio Telegram
+   ("🚨 Allarme gas rilevato!"). Non ripete la notifica finché l'allarme resta
+   attivo di lettura in lettura; se rientra e poi si ripresenta, avvisa di nuovo.
+3. **Sul Kindle e in dashboard**: il campo "Allarme gas" nella tabella e la
    linea ALTO/BASSO nel grafico gas indicano se c'è stato **almeno un allarme
    negli ultimi 10 minuti**. Anche un allarme durato 30 secondi tra un invio e
    l'altro viene registrato: l'Arduino se lo "ricorda" fino all'invio
    successivo. ALTO su un intervallo = in quei 10 minuti qualcosa è successo.
-3. **Storico**: gli allarmi restano nel database per sempre, quindi nei
+4. **Storico**: gli allarmi restano nel database per sempre, quindi nei
    periodi Settimana/Mese della dashboard si vede quando sono avvenuti.
 
 Nota: nei primi 2-3 minuti dopo l'accensione dell'Arduino il sensore MQ2 si
 sta scaldando e legge valori in salita — può scattare un falso allarme al boot.
+
+## Il promemoria "chiudi la finestra"
+
+Pensato per l'estate: capita di aprire la finestra al mattino per far scendere
+la temperatura, e di dimenticarsene quando l'aria esterna torna a scaldare —
+a quel punto tenerla aperta comincia a scaldare la stanza invece di raffrescarla.
+
+Il Raspberry osserva i dati che ha già (temperatura interna ed esterna) e:
+
+- **si attiva solo d'estate**, quando la temperatura esterna è sopra i 25°C
+  (sotto quella soglia il calcolo diventa instabile ed è comunque un problema
+  diverso, da affrontare a parte in futuro);
+- **capisce da solo quando la finestra è stata aperta**: quando l'esterna è
+  più fredda dell'interna e l'interna scende in modo continuo (non un singolo
+  scatto isolato — un raggio di sole diretto sul sensore può far salire la
+  lettura per un istante e poi rientrare da solo, e questo non conta come
+  "finestra aperta");
+- **avvisa su Telegram quando è il momento di richiuderla**: quando l'esterna
+  torna davvero a salire (non un singolo rialzo, serve una tendenza chiara
+  nell'ultima quarantina di minuti) e anche l'interna comincia a risalire;
+- manda **una sola notifica** per apertura (non ripete il messaggio se non la
+  richiudi), e si "resetta" da solo se dopo 6 ore non è successo nulla.
+
+Richiede un bot Telegram configurato (token e chat id in `server/.env`, non
+committato — vedi `docs/deploy.md`); senza quella configurazione il resto del
+sistema continua a funzionare normalmente, semplicemente non arriva nessuna
+notifica.
 
 ## I pollini: come leggerli
 
@@ -95,3 +134,6 @@ corrente** (l'ultima lettura oraria), utile per decidere se uscire adesso.
   mostra "Nessun dato" senza errori.
 - **Riavvio del Raspberry**: il container riparte da solo, i dati storici sono
   al sicuro (il database vive fuori dal container).
+- **Telegram non risponde, o `server/.env` senza le credenziali**: la
+  notifica non parte (viene solo scritta nei log), ma sensori, pagine e
+  database continuano a funzionare come sempre.
