@@ -120,9 +120,13 @@ function formatDateTime(epochMs) {
          " " + d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
-// stessa soglia già usata in style.css per il layout a una colonna
+// "mobile" qui vuol dire "schermo col touch": la sola larghezza si sbaglia
+// facilmente (un telefono ruotato in orizzontale supera spesso i 480px pur
+// restando un telefono). "pointer: coarse" è vero sui touchscreen e falso
+// con mouse/trackpad, indipendentemente da quanto è larga la finestra
 function isMobileViewport() {
-  return window.matchMedia("(max-width: 480px)").matches;
+  return window.matchMedia("(pointer: coarse)").matches ||
+         window.matchMedia("(max-width: 480px)").matches;
 }
 
 // raggio minimo perché due etichette non si sovrappongano data la larghezza
