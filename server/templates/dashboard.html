@@ -120,6 +120,11 @@ function formatDateTime(epochMs) {
          " " + d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
+// stessa soglia già usata in style.css per il layout a una colonna
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 480px)").matches;
+}
+
 // raggio minimo perché due etichette non si sovrappongano data la larghezza
 // reale (in pixel) del grafico: su schermi stretti (telefono) gli stessi
 // punti occupano meno pixel, quindi serve un raggio maggiore per lasciare
@@ -192,18 +197,67 @@ function findExtrema(values, radius) {
   return marks;
 }
 
+// indice di giorno di calendario (ora locale) a cui appartiene un istante:
+// usato per raggruppare "un giorno" o "N giorni" indipendentemente da
+// quanti campioni contengono (diversamente dal raggio in punti, qui il
+// raggruppamento segue il calendario, non la densità dei dati)
+function localDayIndex(epochMs) {
+  const d = new Date(epochMs);
+  const localMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.floor(localMidnight / (24 * 60 * 60 * 1000));
+}
+
+// su mobile, per settimana/mese: un solo massimo e un solo minimo ogni
+// `daysPerBucket` giorni di calendario, non uno ogni tot campioni — su uno
+// schermo stretto è l'unico modo per garantire una densità prevedibile
+// indipendentemente da quanti punti cadono in ciascun giorno
+function bucketedExtrema(points, daysPerBucket) {
+  const marks = new Map();
+  const buckets = new Map(); // chiave giorno -> { maxIdx, maxVal, minIdx, minVal }
+
+  points.forEach((p, i) => {
+    const key = Math.floor(localDayIndex(p.x) / daysPerBucket);
+    const b = buckets.get(key);
+    if (!b) {
+      buckets.set(key, { maxIdx: i, maxVal: p.y, minIdx: i, minVal: p.y });
+    } else {
+      if (p.y > b.maxVal) { b.maxVal = p.y; b.maxIdx = i; }
+      if (p.y < b.minVal) { b.minVal = p.y; b.minIdx = i; }
+    }
+  });
+
+  for (const b of buckets.values()) {
+    marks.set(b.maxIdx, "max");
+    if (b.minIdx !== b.maxIdx) marks.set(b.minIdx, "min");
+  }
+  if (points.length > 0) marks.set(points.length - 1, "last");
+  return marks;
+}
+
 function formatValue(v) {
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
+// su mobile, settimana e mese usano il raggruppamento per calendario invece
+// che per pixel: un massimo+minimo al giorno (settimana), uno ogni 3 giorni
+// (mese) — desktop e "oggi" da mobile restano sul raggio basato sui pixel,
+// che già funzionava bene
+const MOBILE_DAYS_PER_BUCKET = { week: 1, month: 3 };
+
 // marca un dataset coi pallini su massimi/minimi/ultima misura + etichetta
 // col valore, sempre visibile (non solo al passaggio del mouse)
 function markExtremaPoints(dataset, period, canvasWidthPx, extraSmoothing = 1) {
-  const baseRadius = (EXTREMA_RADIUS[period] || 4) * extraSmoothing;
-  const spacingRadius = minRadiusForSpacing(canvasWidthPx, dataset.data.length);
-  const radius = Math.round(Math.max(baseRadius, spacingRadius));
-  const smoothed = movingAverage(dataset.data.map(p => p.y), radius);
-  const marks = findExtrema(smoothed, radius);
+  const daysPerBucket = MOBILE_DAYS_PER_BUCKET[period];
+  let marks;
+  if (isMobileViewport() && daysPerBucket) {
+    marks = bucketedExtrema(dataset.data, daysPerBucket);
+  } else {
+    const baseRadius = (EXTREMA_RADIUS[period] || 4) * extraSmoothing;
+    const spacingRadius = minRadiusForSpacing(canvasWidthPx, dataset.data.length);
+    const radius = Math.round(Math.max(baseRadius, spacingRadius));
+    const smoothed = movingAverage(dataset.data.map(p => p.y), radius);
+    marks = findExtrema(smoothed, radius);
+  }
   dataset._valueMarks = marks;
   dataset.pointRadius = ctx => marks.has(ctx.dataIndex) ? 3 : 0;
   dataset.pointHoverRadius = 5;
