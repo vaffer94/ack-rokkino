@@ -120,25 +120,22 @@ function formatDateTime(epochMs) {
          " " + d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
+// raggio minimo perché due etichette non si sovrappongano data la larghezza
+// reale (in pixel) del grafico: su schermi stretti (telefono) gli stessi
+// punti occupano meno pixel, quindi serve un raggio maggiore per lasciare
+// spazio al testo. Si adatta a qualunque larghezza (telefono, tablet,
+// finestra ridimensionata) invece di un valore fisso per "mobile sì/no"
+function minRadiusForSpacing(canvasWidthPx, numPoints, minPixelsPerLabel = 55) {
+  if (numPoints <= 1 || !canvasWidthPx) return 0;
+  const pxPerPoint = canvasWidthPx / numPoints;
+  return Math.round(minPixelsPerLabel / pxPerPoint / 2);
+}
+
 // raggio (in punti) usato per "assorbire" i picchi ravvicinati dovuti al
 // rumore di misura: fra due massimi (o due minimi) più vicini di così si
 // tiene solo il più estremo. Su settimana e mese i punti sono più fitti,
 // quindi il raggio cresce di conseguenza
 const EXTREMA_RADIUS = { today: 4, week: 8, month: 15 };
-
-// tiene solo il candidato più estremo in ogni gruppo di punti vicini fra
-// loro (entro `radius`), scartando gli altri: evita grappoli di pallini
-// ravvicinati generati dal rumore invece che da un vero massimo/minimo
-function suppressNearby(candidates, radius, better) {
-  const ordered = [...candidates].sort(better);
-  const accepted = [];
-  for (const c of ordered) {
-    if (accepted.every(a => Math.abs(a.i - c.i) > radius)) {
-      accepted.push(c);
-    }
-  }
-  return accepted;
-}
 
 // media mobile: appiattisce le micro-oscillazioni dovute al rumore del
 // sensore prima di cercare i massimi/minimi, senza alterare i valori
@@ -164,23 +161,33 @@ function findExtrema(values, radius) {
   const n = values.length;
   if (n === 0) return marks;
 
-  const maxCandidates = [];
-  const minCandidates = [];
+  const candidates = [];
   for (let i = 1; i < n - 1; i++) {
     const prev = values[i - 1];
     const next = values[i + 1];
     if (values[i] >= prev && values[i] >= next && (values[i] > prev || values[i] > next)) {
-      maxCandidates.push({ i, value: values[i] });
-    }
-    if (values[i] <= prev && values[i] <= next && (values[i] < prev || values[i] < next)) {
-      minCandidates.push({ i, value: values[i] });
+      candidates.push({ i, type: "max", value: values[i] });
+    } else if (values[i] <= prev && values[i] <= next && (values[i] < prev || values[i] < next)) {
+      candidates.push({ i, type: "min", value: values[i] });
     }
   }
 
-  suppressNearby(maxCandidates, radius, (a, b) => b.value - a.value)
-    .forEach(c => marks.set(c.i, "max"));
-  suppressNearby(minCandidates, radius, (a, b) => a.value - b.value)
-    .forEach(c => marks.set(c.i, "min"));
+  // competizione unica fra massimi e minimi (non due liste separate): senza
+  // questo, un massimo e un minimo vicini fra loro (tipico di un ciclo
+  // giorno/notte) restavano entrambi anche con un raggio enorme, perché la
+  // spaziatura veniva imposta solo fra due massimi o due minimi fra loro.
+  // Si tiene il punto più significativo (più lontano dalla media) fra quelli
+  // in competizione entro `radius`; l'ultima misura riserva già il suo posto
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  candidates.sort((a, b) => Math.abs(b.value - mean) - Math.abs(a.value - mean));
+
+  const accepted = [{ i: n - 1 }];
+  for (const c of candidates) {
+    if (accepted.every(a => Math.abs(a.i - c.i) > radius)) {
+      accepted.push(c);
+      marks.set(c.i, c.type);
+    }
+  }
   marks.set(n - 1, "last");
   return marks;
 }
@@ -191,8 +198,10 @@ function formatValue(v) {
 
 // marca un dataset coi pallini su massimi/minimi/ultima misura + etichetta
 // col valore, sempre visibile (non solo al passaggio del mouse)
-function markExtremaPoints(dataset, period, radiusMultiplier = 1) {
-  const radius = Math.round((EXTREMA_RADIUS[period] || 4) * radiusMultiplier);
+function markExtremaPoints(dataset, period, canvasWidthPx, extraSmoothing = 1) {
+  const baseRadius = (EXTREMA_RADIUS[period] || 4) * extraSmoothing;
+  const spacingRadius = minRadiusForSpacing(canvasWidthPx, dataset.data.length);
+  const radius = Math.round(Math.max(baseRadius, spacingRadius));
   const smoothed = movingAverage(dataset.data.map(p => p.y), radius);
   const marks = findExtrema(smoothed, radius);
   dataset._valueMarks = marks;
@@ -301,13 +310,16 @@ function updateCharts(data) {
 
   // pallini + etichetta valore sui massimi/minimi locali e sull'ultima
   // misura, per ogni serie continua (non per la linea a gradini "allarme").
-  // Il gas MQ2 grezzo è molto più "nervoso" delle altre grandezze: una
-  // finestra più ampia diluisce i pallini così da vederne meno
+  // Il gas MQ2 grezzo è molto più "nervoso" delle altre grandezze: serve
+  // più lisciamento a prescindere dallo schermo. La larghezza reale del
+  // grafico (diversa fra telefono e desktop) aggiunge poi un raggio minimo
+  // perché le etichette non si sovrappongano, qualunque sia lo schermo
   for (const id of ["chart-temperature", "chart-humidity", "chart-gas", "chart-lux"]) {
-    const radiusMultiplier = id === "chart-gas" ? 4 : 1;
+    const extraSmoothing = id === "chart-gas" ? 4 : 1;
+    const canvasWidthPx = document.getElementById(id).clientWidth;
     for (const dataset of series[id]) {
       if (dataset.stepped) continue;
-      markExtremaPoints(dataset, currentPeriod, radiusMultiplier);
+      markExtremaPoints(dataset, currentPeriod, canvasWidthPx, extraSmoothing);
     }
   }
 
