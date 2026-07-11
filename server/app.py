@@ -18,6 +18,15 @@ db.init_db()
 SENSOR_FIELDS = ("temperature", "humidity", "gas", "lux", "alarm_state")
 
 
+def _gas_alarm_just_triggered(alarm_state):
+    """True se questo è il primo 1 dopo uno 0 (o il primissimo dato): evita
+    di rimandare la notifica ad ogni lettura finché l'allarme resta attivo."""
+    if alarm_state != 1:
+        return False
+    previous = db.get_latest_readings("sensor_readings", 2)
+    return len(previous) < 2 or previous[1]["alarm_state"] != 1
+
+
 @app.post("/api/sensors")
 def receive_sensor_data():
     data = request.get_json(silent=True)
@@ -29,15 +38,19 @@ def receive_sensor_data():
         return jsonify({"error": f"Campi mancanti: {', '.join(missing)}"}), 400
 
     try:
+        alarm_state = int(data["alarm_state"])
         db.insert_sensor_reading(
             temperature=float(data["temperature"]),
             humidity=float(data["humidity"]),
             gas=int(data["gas"]),
             lux=float(data["lux"]),
-            alarm_state=int(data["alarm_state"]),
+            alarm_state=alarm_state,
         )
     except (TypeError, ValueError):
         return jsonify({"error": "Valori non numerici nei campi"}), 400
+
+    if _gas_alarm_just_triggered(alarm_state):
+        window_alert.send_telegram_message("🚨 Allarme gas rilevato!")
 
     window_alert.check_and_notify()
 
