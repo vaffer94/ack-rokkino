@@ -243,10 +243,12 @@ function formatValue(v) {
 }
 
 // su mobile, settimana e mese usano il raggruppamento per calendario invece
-// che per pixel: un massimo+minimo al giorno (settimana), uno ogni 3 giorni
+// che per pixel: un massimo+minimo ogni 2 giorni (settimana), ogni 6 giorni
 // (mese) — desktop e "oggi" da mobile restano sul raggio basato sui pixel,
-// che già funzionava bene
-const MOBILE_DAYS_PER_BUCKET = { week: 1, month: 3 };
+// che già funzionava bene. Il valore "1 al giorno" iniziale raddoppiava di
+// fatto sui grafici a due linee (interna+esterna, ciascuna etichettata per
+// conto suo): con due serie diventava comunque troppo fitto
+const MOBILE_DAYS_PER_BUCKET = { week: 2, month: 6 };
 
 // marca un dataset coi pallini su massimi/minimi/ultima misura + etichetta
 // col valore, sempre visibile (non solo al passaggio del mouse)
