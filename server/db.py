@@ -58,6 +58,15 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS window_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            event TEXT NOT NULL
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -126,6 +135,27 @@ def get_daily_pollen(days=15):
     ).fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def insert_window_event(event, timestamp=None):
+    timestamp = timestamp or datetime.now(timezone.utc).isoformat()
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO window_events (timestamp, event) VALUES (?, ?)",
+        (timestamp, event),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_last_window_event():
+    """Ultimo evento finestra come dict, o None se non ce ne sono ancora."""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM window_events ORDER BY timestamp DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 def get_latest_readings(table, limit=15):

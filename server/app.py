@@ -8,6 +8,7 @@ from flask import Flask, Response, abort, jsonify, render_template, request
 import charts
 import db
 import weather
+import window_alert
 
 TZ = ZoneInfo("Europe/Rome")
 
@@ -37,6 +38,8 @@ def receive_sensor_data():
         )
     except (TypeError, ValueError):
         return jsonify({"error": "Valori non numerici nei campi"}), 400
+
+    window_alert.check_and_notify()
 
     return jsonify({"status": "ok"}), 201
 

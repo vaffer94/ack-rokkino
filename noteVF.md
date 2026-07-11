@@ -196,6 +196,20 @@ Da fare eventualmente DOPO il trasloco, a sistema stabile.
 2. **Avviso "Arduino muto"**: se l'Arduino si blocca o perde la rete, i
    grafici si fermano in silenzio. Banner sul Kindle "⚠ nessun dato da X ore"
    quando l'ultimo POST è più vecchio di 30 min (+ eventuale notifica ntfy).
+3. **Autenticazione su dashboard/kindle/API + chiave per l'Arduino** — da
+   dati come luminosità/gas/allarme si capisce quando sei in casa, quindi
+   diventa importante appena la pagina è raggiungibile anche da fuori (es.
+   con Tailscale, o se un giorno esponi la porta dal tuo router). Due parti:
+   - **Login (utente/password) su `/dashboard`, `/kindle`, `/chart/<metric>.png`,
+     `/api/data`, `/api/latest`**: HTTP Basic Auth di Flask, credenziali in un
+     file `server/.env` (non committato, come `arduino_secrets.h`).
+   - **Chiave segreta per `POST /api/sensors`**: l'Arduino manda un header
+     `X-API-Key` con un token generato a caso; il server rifiuta chi non lo
+     manda o lo sbaglia. Aggiornamento da fare anche in `arduino/sketch/sketch.ino`
+     e `arduino_secrets.h`.
+   - Attenzione: Basic Auth da solo non cifra le credenziali — va bene su
+     WiFi di casa o dentro un tunnel già cifrato (es. Tailscale), ma non va
+     esposto in chiaro su internet senza HTTPS.
 
 ### Altre idee parcheggiate
 - **Pressione e UV nel server**: lo shield ENV li misura già (vanno su SD e
@@ -213,8 +227,6 @@ Da fare eventualmente DOPO il trasloco, a sistema stabile.
   (il sensore in riscaldamento può causare un falso allarme).
 - Backup periodico automatico del DB (cron sul Pi che copia sensors.db,
   magari su USB o verso il Mac).
-- Autenticazione basica sulle pagine se mai il server diventasse
-  raggiungibile da fuori casa (Fase 9 del piano originale).
 
 ## 🧹 Pulizie rimandate
 

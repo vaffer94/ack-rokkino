@@ -20,3 +20,10 @@ for row in db.get_readings("weather_readings", "today"):
 
 print("\n=== sensor_readings (week) ===")
 print(f"{len(db.get_readings('sensor_readings', 'week'))} record")
+
+print("\n=== window_events ===")
+print("prima di inserire:", db.get_last_window_event())
+db.insert_window_event("opened")
+print("dopo 'opened':", db.get_last_window_event())
+db.insert_window_event("closed_notified")
+print("dopo 'closed_notified':", db.get_last_window_event())

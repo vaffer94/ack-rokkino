@@ -10,4 +10,8 @@ services:
       - ./data:/app/data
     environment:
       - TZ=Europe/Rome
+    # segreti (token Telegram, ecc.): file locale non committato,
+    # vedi .env.example per i campi richiesti
+    env_file:
+      - .env
     restart: unless-stopped
