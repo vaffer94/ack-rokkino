@@ -73,9 +73,9 @@ Con l'Arduino acceso, monitor seriale aperto, aspetta il ciclo da 10 minuti e ve
 # 🔄 COSA FARE QUANDO CAMBIA IL ROUTER (nuova WiFi)
 
 Tempo stimato: ~10 minuti. Servono: Mac con Arduino IDE, accesso al Raspberry.
-(Nota: la vecchia sezione "IP statico" più sopra non vale più — non avendo
-accesso al router della vicina siamo rimasti in DHCP; col router nuovo vedi
-il punto 6 qui sotto.)
+(Nota: dall'01/08/2026 il router è di proprietà e l'IP del Pi è riservato —
+vedi punto 6, ormai fatto. Questa checklist resta valida per un eventuale
+trasloco o cambio di router futuro: ha già funzionato una volta.)
 
 ## 1. Ricollegare il Raspberry alla nuova WiFi
 
@@ -152,21 +152,61 @@ Se non c'è: `cd ~/ack-rokkino/server && docker compose up -d`
 - `http://<nuovo-ip>:5001/kindle`
 - `http://<nuovo-ip>:5001/dashboard`
 
-## 6. (Consigliato, appena c'è il router nuovo) IP fisso definitivo
+## 6. ✅ IP fisso definitivo — FATTO l'01/08/2026
 
-Col router di proprietà si può entrare nella pagina admin (di solito
-`http://192.168.1.1`) e fare una **riserva DHCP**: si associa il MAC address
-del Pi (`ip addr show`, riga `link/ether`) a un IP fisso. Da lì in poi l'IP
-non cambia più nemmeno riavviando tutto, e questa checklist serve solo per
-i punti 1 e 3 (credenziali WiFi).
+Pannello del router: `http://192.168.0.1` → **Dispositivi connessi** →
+**Dispositivi** → `MODIFICA` sulla riga del Pi → **IP riservato**.
+Il Pi è già nell'elenco perché connesso, quindi non va riaggiunto: il MAC
+è già compilato. Per verificarlo dal Pi: `ip addr show wlan0` (riga
+`link/ether`).
+
+Da qui in poi l'IP non cambia più, nemmeno dopo un blackout o un riavvio
+del router: per un prossimo cambio rete bastano i punti 1 e 3 (credenziali
+WiFi).
 
 ---
 
-## 📌 Indirizzi attuali (rete della vicina, fino al trasloco)
+## 📌 Indirizzi attuali (rete propria, IP riservato dal router)
 
-- Raspberry: `192.168.1.17`
-- Pagina Kindle: `http://192.168.1.17:5001/kindle`
-- Dashboard: `http://192.168.1.17:5001/dashboard`
+- Raspberry: `192.168.0.182` — riservato, non cambia
+- Pagina Kindle: `http://192.168.0.182:5001/kindle`
+- Dashboard: `http://192.168.0.182:5001/dashboard`
+- Router: `http://192.168.0.1`
+
+Nome rete, utente SSH e comandi pronti: vedi `ACCESSI.local.md` (file solo
+locale, escluso da Git).
+
+## ✅ Fatto l'01/08/2026 — passaggio alla rete di casa
+
+Migrazione dalla WiFi della vicina (in trasloco) alla rete propria, fatta
+tutta da remoto, senza tastiera né monitor attaccati al Pi:
+
+1. dalla shell di Raspberry Pi Connect, **mentre il Pi era ancora online
+   sulla rete vecchia**, verifica che la rete nuova fosse visibile e con
+   buon segnale:
+   `sudo nmcli dev wifi rescan; sleep 10; sudo nmcli dev wifi list`;
+2. connessione con un comando solo (salva la rete e ci si collega):
+   `sudo nmcli device wifi connect "<nome-rete>" password "<password>"`;
+3. la shell di Connect si è scollegata — previsto, il Pi stava cambiando
+   rete — ma il client Connect **non è ripartito da solo**;
+4. il Pi è stato ritrovato dal Mac con
+   `dscacheutil -q host -a name vafferRaspPi.local`: nuovo indirizzo su una
+   **sottorete diversa** (`192.168.0.x` invece di `192.168.1.x`);
+5. riserva DHCP dal pannello del router (punto 6);
+6. aggiornamento di `arduino_secrets.h` e ricarica dello sketch (punto 3).
+
+⚠️ **Lezione utile.** La rete vecchia è rimasta salvata come riserva: in
+caso di password sbagliata sarebbe bastato togliere e ridare corrente al Pi
+per tornare indietro. Non cancellare mai la rete vecchia prima di aver
+verificato che la nuova funziona.
+
+Due trappole incontrate:
+- `nmtui` nel terminale del browser mostrava **una sola rete**, facendo
+  sembrare che il Pi non vedesse la rete nuova. Era un problema di
+  visualizzazione: `nmcli dev wifi list` le elencava tutte, con segnale.
+- subito dopo il cambio, il Pi rispondeva in 5-7 **secondi**. Si è
+  sistemato da solo entro pochi minuti (10 ms): è la connessione che si
+  assesta, non serve intervenire.
 
 ## ✅ Fatto l'11/07/2026 — notifiche Telegram + dashboard
 

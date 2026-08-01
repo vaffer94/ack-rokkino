@@ -141,7 +141,7 @@ unsigned long lastUpdate = 0;
 const unsigned long interval = 20000; // 20 seconds (ThingSpeak)
 
 unsigned long lastSdLog = 0;
-const unsigned long sdLogInterval = 600000UL; // 10 minuti (log su SD)
+const unsigned long sdLogInterval = 300000UL; // 5 minuti (log su SD)
 
 // ----------- allarm logic --------
 

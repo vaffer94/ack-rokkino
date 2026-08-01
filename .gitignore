@@ -7,3 +7,6 @@ __pycache__/
 # Segreti (mai committare) — in qualunque cartella si trovino
 arduino_secrets.h
 .env
+
+# Appunti locali con indirizzi e accessi (mai committare)
+*.local.md

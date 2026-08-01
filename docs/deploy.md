@@ -13,6 +13,9 @@ Raspberry si aggiorna con `git pull` + rebuild del container**.
   [connect.raspberrypi.com](https://connect.raspberrypi.com) → login → shell
   sul dispositivo `vafferRaspPi`). Non serve SSH né conoscere l'IP per
   amministrarlo — Connect funziona anche da fuori casa;
+- in alternativa, **da casa**, SSH: `ssh <utente>@192.168.0.182` (utente e
+  comando pronto in `ACCESSI.local.md`, non committato). Utile quando il
+  client Connect non riparte dopo un cambio di rete;
 - `server/.env` presente (non committato, come `arduino_secrets.h`) con le
   credenziali del bot Telegram — vedi sezione dedicata più sotto. Senza
   questo file `docker compose up` si rifiuta di partire (l'`env_file` in
@@ -89,8 +92,8 @@ database sta in `~/ack-rokkino/server/data/`, fuori dal container.
 
 - nei log: `Running on http://0.0.0.0:5000` e, entro un minuto,
   `[weather] salvato: ...`;
-- dal browser: `http://192.168.1.17:5001/kindle` (IP attuale del Pi — se è
-  cambiato: `hostname -I` sul Raspberry);
+- dal browser: `http://192.168.0.182:5001/kindle` (IP riservato del Pi — se
+  fosse cambiato: `hostname -I` sul Raspberry);
 - il POST dell'Arduino arriva ogni 10 minuti: nei log si vede
   `POST /api/sensors` → se dopo 10-15 minuti non compare, vedi Troubleshooting.
 
